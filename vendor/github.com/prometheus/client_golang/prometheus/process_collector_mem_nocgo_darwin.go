@@ -11,12 +11,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build darwin && !cgo
+//go:build darwin && !ios && !cgo
 
 package prometheus
 
 func getMemory() (*memoryInfo, error) {
-	return nil, notImplementedErr
+	return nil, errNotImplemented
 }
 
 // describe returns all descriptions of the collector for Darwin.

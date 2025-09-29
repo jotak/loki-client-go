@@ -13,8 +13,6 @@ import (
 	"github.com/blang/semver"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
-	"github.com/opentracing/opentracing-go"
-	otlog "github.com/opentracing/opentracing-go/log"
 )
 
 // WriteJSONResponse writes some JSON as a HTTP response.
@@ -76,10 +74,6 @@ func CompressionTypeFor(version string) CompressionType {
 func ParseProtoReader(ctx context.Context, reader io.Reader, expectedSize, maxSize int, req proto.Message, compression CompressionType) error {
 	var body []byte
 	var err error
-	sp := opentracing.SpanFromContext(ctx)
-	if sp != nil {
-		sp.LogFields(otlog.String("event", "util.ParseProtoRequest[start reading]"))
-	}
 	var buf bytes.Buffer
 	if expectedSize > 0 {
 		if expectedSize > maxSize {
@@ -99,10 +93,6 @@ func ParseProtoReader(ctx context.Context, reader io.Reader, expectedSize, maxSi
 	case RawSnappy:
 		_, err = buf.ReadFrom(reader)
 		body = buf.Bytes()
-		if sp != nil {
-			sp.LogFields(otlog.String("event", "util.ParseProtoRequest[decompress]"),
-				otlog.Int("size", len(body)))
-		}
 		if err == nil && len(body) <= maxSize {
 			body, err = snappy.Decode(nil, body)
 		}
@@ -112,11 +102,6 @@ func ParseProtoReader(ctx context.Context, reader io.Reader, expectedSize, maxSi
 	}
 	if len(body) > maxSize {
 		return fmt.Errorf("received message larger than max (%d vs %d)", len(body), maxSize)
-	}
-
-	if sp != nil {
-		sp.LogFields(otlog.String("event", "util.ParseProtoRequest[unmarshal]"),
-			otlog.Int("size", len(body)))
 	}
 
 	// We re-implement proto.Unmarshal here as it calls XXX_Unmarshal first,
@@ -150,7 +135,7 @@ func SerializeProtoResponse(w http.ResponseWriter, resp proto.Message, compressi
 		if _, err := writer.Write(data); err != nil {
 			return err
 		}
-		writer.Close()
+		_ = writer.Close()
 		data = buf.Bytes()
 	case RawSnappy:
 		data = snappy.Encode(nil, data)
